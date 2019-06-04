@@ -35,6 +35,8 @@ function catchErrors(fn) {
   };
 }
 
+// react dev tool 暴露的全局 api
+// window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {...}
 export const isDevToolsPresent =
   typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== 'undefined';
 

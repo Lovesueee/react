@@ -322,11 +322,14 @@ type Work = {
   _didCommit: boolean,
 };
 
+// 有点类似 jquery 的 defer
+// 一个异步执行的队列
 function ReactWork() {
   this._callbacks = null;
   this._didCommit = false;
   // TODO: Avoid need to bind by replacing callbacks in the update queue with
   // list of Work objects.
+  // 绑定了 this
   this._onCommit = this._onCommit.bind(this);
 }
 ReactWork.prototype.then = function(onCommit: () => mixed): void {
@@ -341,6 +344,7 @@ ReactWork.prototype.then = function(onCommit: () => mixed): void {
   callbacks.push(onCommit);
 };
 ReactWork.prototype._onCommit = function(): void {
+  // 只执行一遍
   if (this._didCommit) {
     return;
   }
@@ -368,6 +372,7 @@ function ReactRoot(
   hydrate: boolean,
 ) {
   const root = createContainer(container, isConcurrent, hydrate);
+  // fiberRoot 实例（并不是 rootFiber 节点）
   this._internalRoot = root;
 }
 ReactRoot.prototype.render = function(
@@ -384,6 +389,7 @@ ReactRoot.prototype.render = function(
     work.then(callback);
   }
   updateContainer(children, root, null, work._onCommit);
+  // 返回 work，即：支持 root.render().then(() => {...});
   return work;
 };
 ReactRoot.prototype.unmount = function(callback: ?() => mixed): Work {
@@ -405,7 +411,7 @@ ReactRoot.prototype.legacy_renderSubtreeIntoContainer = function(
   callback: ?() => mixed,
 ): Work {
   const root = this._internalRoot;
-  const work = new ReactWork();
+  const work = new ReactWork(); // 暂时没找到 ReactWork 的作用？
   callback = callback === undefined ? null : callback;
   if (__DEV__) {
     warnOnInvalidCallback(callback, 'render');
@@ -468,6 +474,10 @@ function getReactRootElementInContainer(container: any) {
     return null;
   }
 
+  // window.document.nodeType === DOCUMENT_NODE
+  // document 指的是文档对象
+  // document.documentElement 指的是 <html /> 标签节点
+  // 也就是说 document 是可以作为 container 容器的
   if (container.nodeType === DOCUMENT_NODE) {
     return container.documentElement;
   } else {
@@ -477,6 +487,7 @@ function getReactRootElementInContainer(container: any) {
 
 function shouldHydrateDueToLegacyHeuristic(container) {
   const rootElement = getReactRootElementInContainer(container);
+  // 如果是服务端返回的 markup，则需要 hydrate
   return !!(
     rootElement &&
     rootElement.nodeType === ELEMENT_NODE &&
@@ -484,6 +495,7 @@ function shouldHydrateDueToLegacyHeuristic(container) {
   );
 }
 
+// 设置 batching 实现？
 setBatchingImplementation(
   batchedUpdates,
   interactiveUpdates,
@@ -496,12 +508,17 @@ function legacyCreateRootFromDOMContainer(
   container: DOMContainer,
   forceHydrate: boolean,
 ): Root {
+  // forceHydrate 是一个优先级标记
+  // shouldHydrate 指的是 SSR 时，给服务端返回的干瘪的字符串进行（注水）
+  // 详见：https://www.zhihu.com/question/66068748/answer/238357714
   const shouldHydrate =
     forceHydrate || shouldHydrateDueToLegacyHeuristic(container);
   // First clear any existing content.
+  // 不是服务端渲染，清空 container 里的 html markup（非 react 生成）
   if (!shouldHydrate) {
     let warned = false;
     let rootSibling;
+    // 从最后一个子节点开始删除
     while ((rootSibling = container.lastChild)) {
       if (__DEV__) {
         if (
@@ -522,6 +539,8 @@ function legacyCreateRootFromDOMContainer(
     }
   }
   if (__DEV__) {
+    // ReactDOM.render 在 v17 版本，将不再支持服务端渲染，请使用 ReactDOM.hydrate()
+    // 这也是为什么会有上述 shouldHydrate 的判断！
     if (shouldHydrate && !forceHydrate && !warnedAboutHydrateAPI) {
       warnedAboutHydrateAPI = true;
       lowPriorityWarning(
@@ -533,6 +552,7 @@ function legacyCreateRootFromDOMContainer(
     }
   }
   // Legacy roots are not async by default.
+  // 默认不开启异步渲染模式（并行？）
   const isConcurrent = false;
   return new ReactRoot(container, isConcurrent, shouldHydrate);
 }
@@ -553,6 +573,8 @@ function legacyRenderSubtreeIntoContainer(
   let root: Root = (container._reactRootContainer: any);
   if (!root) {
     // Initial mount
+    // 初始化渲染
+    // 创建 root(ReactRoot 实例)，与 container 关联
     root = container._reactRootContainer = legacyCreateRootFromDOMContainer(
       container,
       forceHydrate,
@@ -560,6 +582,8 @@ function legacyRenderSubtreeIntoContainer(
     if (typeof callback === 'function') {
       const originalCallback = callback;
       callback = function() {
+        // root._internalRoot 指的是 fiberRoot
+        // fiberRoot 与 instance（组件实例）存在对应关系
         const instance = getPublicRootInstance(root._internalRoot);
         originalCallback.call(instance);
       };
@@ -580,11 +604,13 @@ function legacyRenderSubtreeIntoContainer(
     if (typeof callback === 'function') {
       const originalCallback = callback;
       callback = function() {
+        // 重写 callback，运行时异步返回组件实例给 callback
         const instance = getPublicRootInstance(root._internalRoot);
         originalCallback.call(instance);
       };
     }
     // Update
+    // 更新渲染
     if (parentComponent != null) {
       root.legacy_renderSubtreeIntoContainer(
         parentComponent,
@@ -595,6 +621,9 @@ function legacyRenderSubtreeIntoContainer(
       root.render(children, callback);
     }
   }
+  // 同步返回组件实例，给调用者
+  // 这是兼容老的 API，在未来的异步版本中，会被移出
+  // 详见 NOTE https://reactjs.org/docs/react-dom.html#render
   return getPublicRootInstance(root._internalRoot);
 }
 
@@ -611,6 +640,7 @@ function createPortal(
   return createPortalImpl(children, container, null, key);
 }
 
+// 暴露 API
 const ReactDOM: Object = {
   createPortal,
 
@@ -675,10 +705,12 @@ const ReactDOM: Object = {
     container: DOMContainer,
     callback: ?Function,
   ) {
+    // 断言，程序报错（不区分环境 DEV/PRODUCTION）
     invariant(
       isValidContainer(container),
       'Target container is not a DOM element.',
     );
+    // Warning 则只需要在 DEV 环境下提示用户
     if (__DEV__) {
       warningWithoutStack(
         !container._reactHasBeenPassedToCreateRootDEV,

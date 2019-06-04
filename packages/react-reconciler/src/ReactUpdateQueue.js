@@ -255,6 +255,8 @@ export function enqueueUpdate<State>(fiber: Fiber, update: Update<State>) {
   }
   if (queue2 === null || queue1 === queue2) {
     // There's only a single queue.
+    // 初始化 render 时，会执行这里
+    // 将 update 方队链表队里里
     appendUpdateToQueue(queue1, update);
   } else {
     // There are two queues. We need to append the update to both queues,

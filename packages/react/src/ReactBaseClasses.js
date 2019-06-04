@@ -10,6 +10,9 @@ import lowPriorityWarning from 'shared/lowPriorityWarning';
 
 import ReactNoopUpdateQueue from './ReactNoopUpdateQueue';
 
+// 冻结 this.refs 对象
+// 即：如果用户试图 this.refs.xxx = 'yyy'
+// 在开发环境下，会抛错：TypeError: Cannot add property xxx, object is not extensible
 const emptyObject = {};
 if (__DEV__) {
   Object.freeze(emptyObject);
@@ -18,6 +21,7 @@ if (__DEV__) {
 /**
  * Base class helpers for the updating state of a component.
  */
+// 为啥不直接用 class 呢？大概是出于 minify 考虑。
 function Component(props, context, updater) {
   this.props = props;
   this.context = context;
@@ -25,6 +29,7 @@ function Component(props, context, updater) {
   this.refs = emptyObject;
   // We initialize the default updater but the real one gets injected by the
   // renderer.
+  // 真正的 updater 会在实例化好之后，被重新赋值，详见 classComponentUpdater
   this.updater = updater || ReactNoopUpdateQueue;
 }
 
@@ -139,6 +144,7 @@ function PureComponent(props, context, updater) {
 const pureComponentPrototype = (PureComponent.prototype = new ComponentDummy());
 pureComponentPrototype.constructor = PureComponent;
 // Avoid an extra prototype jump for these methods.
+// 原型链优化
 Object.assign(pureComponentPrototype, Component.prototype);
 pureComponentPrototype.isPureReactComponent = true;
 

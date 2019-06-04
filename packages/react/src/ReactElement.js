@@ -172,6 +172,8 @@ export function createElement(type, config, children) {
   let propName;
 
   // Reserved names are extracted
+  // config !== props，因为特殊的属性，如：ref/key
+  // 也就是说组件内部 this.props.ref 是不会访问到或者透传给 子组件 的
   const props = {};
 
   let key = null;

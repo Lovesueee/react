@@ -291,6 +291,7 @@ function FiberNode(
   }
 }
 
+// POJO => Plain Old Javascript Object 普通的 JS 对象
 // This is a constructor function, rather than a POJO constructor, still
 // please ensure we do the following:
 // 1) Nobody should add any instance methods on this. Instance methods can be
@@ -304,6 +305,8 @@ function FiberNode(
 //    is faster.
 // 5) It should be easy to port this to a C struct and keep a C implementation
 //    compatible.
+// 是一个构造函数，而不是一个普通对象构造器
+// 没有直接暴露 FiberNode 构造器，是为了防止被改写？！
 const createFiber = function(
   tag: WorkTag,
   pendingProps: mixed,
@@ -419,6 +422,9 @@ export function createWorkInProgress(
 }
 
 export function createHostRootFiber(isConcurrent: boolean): Fiber {
+  // 异步（并行）模式，即：ConcurrentMode 默认开启 StrictMode 严格模式
+  // 位运算：同时支持多种特性
+  // 详见：http://xxgblog.com/2013/09/15/java-bitmask/
   let mode = isConcurrent ? ConcurrentMode | StrictMode : NoContext;
 
   if (enableProfilerTimer && isDevToolsPresent) {
@@ -428,6 +434,7 @@ export function createHostRootFiber(isConcurrent: boolean): Fiber {
     mode |= ProfileMode;
   }
 
+  // 创建 HostRoot Fiber 节点
   return createFiber(HostRoot, null, null, mode);
 }
 

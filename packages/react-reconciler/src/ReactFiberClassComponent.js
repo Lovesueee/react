@@ -178,6 +178,7 @@ export function applyDerivedStateFromProps(
   }
 }
 
+// 即：this.updater
 const classComponentUpdater = {
   isMounted,
   enqueueSetState(inst, payload, callback) {
@@ -196,6 +197,7 @@ const classComponentUpdater = {
 
     flushPassiveEffects();
     enqueueUpdate(fiber, update);
+    // 安排当前节点更新，从当前 fiber 节点开始
     scheduleWork(fiber, expirationTime);
   },
   enqueueReplaceState(inst, payload, callback) {

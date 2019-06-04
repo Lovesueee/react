@@ -1596,8 +1596,10 @@ function computeExpirationForFiber(currentTime: ExpirationTime, fiber: Fiber) {
   const priorityLevel = getCurrentPriorityLevel();
 
   let expirationTime;
+  // 与操作判断是否是异步(并发)模式
   if ((fiber.mode & ConcurrentMode) === NoContext) {
     // Outside of concurrent mode, updates are always synchronous.
+    // 同步渲染，优先级是最高的
     expirationTime = Sync;
   } else if (isWorking && !isCommitting) {
     // During render phase, updates expire during as the current render.
@@ -1746,6 +1748,7 @@ function resolveRetryThenable(boundaryFiber: Fiber, thenable: Thenable) {
 }
 
 function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
+  // 可忽略关于性能监控的代码
   recordScheduleUpdate();
 
   if (__DEV__) {
@@ -1756,6 +1759,8 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   }
 
   // Update the source fiber's expiration time
+  // 更新 fiberNode 的 expiration Time
+  // expirationTime 越大优先级越高
   if (fiber.expirationTime < expirationTime) {
     fiber.expirationTime = expirationTime;
   }
@@ -1766,12 +1771,19 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
   // Walk the parent path to the root and update the child expiration time.
   let node = fiber.return;
   let root = null;
+  // 本身就是 rootFiber 直接返回 fiberRoot
+  // fiberRoot 里面包含了 container dom 信息
+  // 什么情况下 node === null 但是 fiber.tag !== HostRoot
+  // 答：用在某个父组件（节点）已经销毁的情况下，parrentFiber 为 null？
   if (node === null && fiber.tag === HostRoot) {
+    // fiberRoot
     root = fiber.stateNode;
   } else {
+    // 通过 node.return 向上查找 rootFiber
     while (node !== null) {
       alternate = node.alternate;
       if (node.childExpirationTime < expirationTime) {
+        // 存储的是子节点的 expiration Time?
         node.childExpirationTime = expirationTime;
         if (
           alternate !== null &&
@@ -1828,6 +1840,7 @@ function scheduleWorkToRoot(fiber: Fiber, expirationTime): FiberRoot | null {
       }
     }
   }
+  // 返回 fiberRoot
   return root;
 }
 
@@ -1853,7 +1866,10 @@ export function warnIfNotCurrentlyBatchingInDev(fiber: Fiber): void {
 }
 
 function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
+  // 从当前 fiber 节点开始，向上寻找 rootFiber，返回 fiberRoot
+  // 一切的更新都是从 rootFiber 做起！
   const root = scheduleWorkToRoot(fiber, expirationTime);
+  // root 为 null 的情况，发生在对一个 unmounted 的 Fiber 进行更新
   if (root === null) {
     if (__DEV__) {
       switch (fiber.tag) {
@@ -1868,6 +1884,7 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
           break;
       }
     }
+    // 线上环境就直接返回了，不做任何处理
     return;
   }
 
@@ -1890,8 +1907,10 @@ function scheduleWork(fiber: Fiber, expirationTime: ExpirationTime) {
     nextRoot !== root
   ) {
     const rootExpirationTime = root.expirationTime;
+    // 开始请求更新 fiber 节点，从 root 节点开始
     requestWork(root, rootExpirationTime);
   }
+  // 组件层次最多嵌套 50 层
   if (nestedUpdateCount > NESTED_UPDATE_LIMIT) {
     // Reset this back to zero so subsequent updates don't throw.
     nestedUpdateCount = 0;
@@ -1938,7 +1957,9 @@ let isUnbatchingUpdates: boolean = false;
 
 let completedBatches: Array<Batch> | null = null;
 
+// reactjs 执行时间
 let originalStartTimeMs: number = now();
+// 将 ms 转换为 expiration Time，去除 10 ms 以内的差异
 let currentRendererTime: ExpirationTime = msToExpirationTime(
   originalStartTimeMs,
 );
@@ -1949,8 +1970,11 @@ const NESTED_UPDATE_LIMIT = 50;
 let nestedUpdateCount: number = 0;
 let lastCommittedRootDuringThisBatch: FiberRoot | null = null;
 
+// 重新计算当前的渲染时间点
 function recomputeCurrentRendererTime() {
+  // 时间，以 startTime 为基准
   const currentTimeMs = now() - originalStartTimeMs;
+  // 将 ms(毫秒) 转换为 expirationTime(代表着毫秒的一个区间值)
   currentRendererTime = msToExpirationTime(currentTimeMs);
 }
 
@@ -1972,6 +1996,7 @@ function scheduleCallbackWithExpirationTime(
     }
     // The request callback timer is already running. Don't start a new one.
   } else {
+    // 开启一个 request callback timer
     startRequestCallbackTimer();
   }
 
@@ -1979,6 +2004,8 @@ function scheduleCallbackWithExpirationTime(
   const currentMs = now() - originalStartTimeMs;
   const expirationTimeMs = expirationTimeToMs(expirationTime);
   const timeout = expirationTimeMs - currentMs;
+  // 计算出当前执行异步操作，超时时间。即：在 timeout (ms) 时间内需做完
+  // 看到这里了！！！！
   callbackID = scheduleDeferredCallback(performAsyncWork, {timeout});
 }
 
@@ -2047,7 +2074,7 @@ function requestCurrentTime() {
   //
   // Expiration times are computed by adding to the current time (the start
   // time). However, if two updates are scheduled within the same event, we
-  // should treat their start times as simultaneous, even if the actual clock
+  // should treat their start times as simultaneous(同时发生), even if the actual clock
   // time has advanced between the first and second call.
 
   // In other words, because expiration times determine how updates are batched,
@@ -2073,6 +2100,7 @@ function requestCurrentTime() {
   ) {
     // If there's no pending work, or if the pending work is offscreen, we can
     // read the current time without risk of tearing.
+    // 初次渲染会执行这里！
     recomputeCurrentRendererTime();
     currentSchedulerTime = currentRendererTime;
     return currentSchedulerTime;
@@ -2095,6 +2123,7 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
     return;
   }
 
+  // 比如：事件处理，updates 会被 batching，将多个，也就是说会蹲在多个 root 等待更新
   if (isBatchingUpdates) {
     // Flush work at the end of the batch.
     if (isUnbatchingUpdates) {
@@ -2109,8 +2138,10 @@ function requestWork(root: FiberRoot, expirationTime: ExpirationTime) {
 
   // TODO: Get rid of Sync and use current time?
   if (expirationTime === Sync) {
+    // 同步渲染
     performSyncWork();
   } else {
+    // 异步渲染
     scheduleCallbackWithExpirationTime(root, expirationTime);
   }
 }
@@ -2470,6 +2501,7 @@ function onUncaughtError(error: mixed) {
 // the reconciler.
 function batchedUpdates<A, R>(fn: (a: A) => R, a: A): R {
   const previousIsBatchingUpdates = isBatchingUpdates;
+  // 开启 batchedUpdates
   isBatchingUpdates = true;
   try {
     return fn(a);
@@ -2484,6 +2516,8 @@ function batchedUpdates<A, R>(fn: (a: A) => R, a: A): R {
 // TODO: Batching should be implemented at the renderer level, not inside
 // the reconciler.
 function unbatchedUpdates<A, R>(fn: (a: A) => R, a: A): R {
+  // 主动 unbatchedUpdates!
+  // 短暂开启 isUnbatchingUpdates 字段，用完后立刻关闭，回复原来可能的 batchedUpdates 状态
   if (isBatchingUpdates && !isUnbatchingUpdates) {
     isUnbatchingUpdates = true;
     try {

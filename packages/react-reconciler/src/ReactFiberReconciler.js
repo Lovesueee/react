@@ -135,7 +135,8 @@ function scheduleRootUpdate(
       );
     }
   }
-
+  // 创建一个 update 对象 (后续会被放入 updateQueue)
+  // 每一个 update，都有一个 expirationTime，来进行优先级判定？
   const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
@@ -152,8 +153,13 @@ function scheduleRootUpdate(
     update.callback = callback;
   }
 
+  // 被动副作用？
   flushPassiveEffects();
+  // add update to updateQueue
+  // 将 update 压入更新队列（等待异步渲染操作）
   enqueueUpdate(current, update);
+  // 开始安排更新工作
+  // 当前 fiber 节点开始（这里是 rootFiber）
   scheduleWork(current, expirationTime);
 
   return expirationTime;
@@ -167,6 +173,7 @@ export function updateContainerAtExpirationTime(
   callback: ?Function,
 ) {
   // TODO: If this is a nested container, this won't be the root.
+  // rootFiber
   const current = container.current;
 
   if (__DEV__) {
@@ -181,13 +188,15 @@ export function updateContainerAtExpirationTime(
     }
   }
 
+  // 获取父组件的上下文（没有的话，为空对象 {}）
+  // 一般是 指定 parentComponent 的时候，子容器继承父容器的上下文
   const context = getContextForSubtree(parentComponent);
   if (container.context === null) {
     container.context = context;
   } else {
     container.pendingContext = context;
   }
-
+  // 开始安排根节点的更新/创建
   return scheduleRootUpdate(current, element, expirationTime, callback);
 }
 
@@ -286,9 +295,15 @@ export function updateContainer(
   parentComponent: ?React$Component<any, any>,
   callback: ?Function,
 ): ExpirationTime {
+  // container: FiberRoot
+  // container.current: rootFiber
   const current = container.current;
   const currentTime = requestCurrentTime();
+  // 以 currentRenderTime 为基准，计算出 HostRoot Fiber 需要的超期时间 expirationTime
+  // 一个 expiration Time 对应着实际 的一个时间区间，如：[5250 ms, 5500ms)，区间大小取决于优先级
+  // current 是一个 fiber 节点，这个 fiber.mode 决定着是否是异步，如果是异步渲染，才需要计算 expirationTime
   const expirationTime = computeExpirationForFiber(currentTime, current);
+  // 在超期时间内更新 container 容器里的内容（即：dom 节点）
   return updateContainerAtExpirationTime(
     element,
     container,
@@ -315,10 +330,15 @@ export {
 export function getPublicRootInstance(
   container: OpaqueRoot,
 ): React$Component<any, any> | PublicInstance | null {
+  // containerFiber 就是  rootFiber
   const containerFiber = container.current;
   if (!containerFiber.child) {
     return null;
   }
+  // 这里基本就是返回 rootFiber 下面的第一个孩子节点
+  // 如果根节点是个数组，containerFiber.child 也是返回第一个孩子节点
+  // - 原生组件直接返回 dom 节点
+  // - 其他的基本就是返回 组件实例
   switch (containerFiber.child.tag) {
     case HostComponent:
       return getPublicInstance(containerFiber.child.stateNode);

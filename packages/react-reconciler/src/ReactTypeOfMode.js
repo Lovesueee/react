@@ -9,6 +9,8 @@
 
 export type TypeOfMode = number;
 
+// 位运算设计
+// 详见：http://xxgblog.com/2013/09/15/java-bitmask/
 export const NoContext = 0b000;
 export const ConcurrentMode = 0b001;
 export const StrictMode = 0b010;

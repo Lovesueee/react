@@ -7,7 +7,7 @@
  * @flow strict
  */
 
-export const enableUserTimingAPI = __DEV__;
+export const enableUserTimingAPI = false;
 
 // Helps identify side effects in begin-phase lifecycle hooks and setState reducers:
 export const debugRenderPhaseSideEffects = false;
@@ -16,23 +16,23 @@ export const debugRenderPhaseSideEffects = false;
 // This can be confusing for tests though,
 // And it can be bad for performance in production.
 // This feature flag can be used to control the behavior:
-export const debugRenderPhaseSideEffectsForStrictMode = __DEV__;
+export const debugRenderPhaseSideEffectsForStrictMode = false;
 
 // To preserve the "Pause on caught exceptions" behavior of the debugger, we
 // replay the begin phase of a failed component inside invokeGuardedCallback.
-export const replayFailedUnitOfWorkWithInvokeGuardedCallback = __DEV__;
+export const replayFailedUnitOfWorkWithInvokeGuardedCallback = false;
 
 // Warn about deprecated, async-unsafe lifecycles; relates to RFC #6:
 export const warnAboutDeprecatedLifecycles = false;
 
 // Gather advanced timing metrics for Profiler subtrees.
-export const enableProfilerTimer = __PROFILE__;
+export const enableProfilerTimer = false;
 
 // Trace which interactions trigger each commit.
-export const enableSchedulerTracing = __PROFILE__;
+export const enableSchedulerTracing = false;
 
 // Only used in www builds.
-export const enableSuspenseServerRenderer = false; // TODO: __DEV__? Here it might just be false.
+export const enableSuspenseServerRenderer = false; // TODO: false? Here it might just be false.
 
 // Only used in www builds.
 export const enableSchedulerDebugging = false;
